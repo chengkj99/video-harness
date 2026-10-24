@@ -1,9 +1,11 @@
 # 工作流接口
 
-以下 `vh` 代表 `python3 <本技能>/scripts/run.py`。Python 3.9+；媒体依赖放在外部后端 runtime，不在插件里下载。
+首次部署先读仓库内的 [工具准备指南](../../../docs/setup.md)。后端已内置；FFmpeg/ffprobe、Pillow、中文字体按指南安装；模型仅在转写时需要。先执行 `media doctor`（缺少必要依赖时退出非零），再做合成媒体试跑。模型目录存在不代表转写模型可用。
+
+以下 `vh` 代表 `python3 <本技能>/scripts/run.py`。Python 3.9+；推荐媒体环境使用 Python 3.11；运行 configure 记录环境，插件不自动下载依赖。
 
 ```sh
-vh import-editor --project /项目新目录 --from-project /旧剪辑工程 --backend /talking-head-editor/scripts/run.py --runtime /runtime.json
+vh import-editor --project /项目新目录 --from-project /旧剪辑工程 --runtime /runtime.json
 vh status --project /项目目录
 vh review --project /项目目录
 vh serve --project /项目目录 --port 8765
@@ -25,4 +27,4 @@ vh package --project /项目目录
 
 原始快照在 original/；编译工程 builds/；执行日志 jobs/；packages/ 按版本新增。原始媒体只记录外部绝对路径。程序只做技术验证，semantic_review 仍为 not_asserted。
 
-第一版不自动抓选题、不调用模型。当前 Codex 根据真实材料生成选题和文案，CLI 管理确定性状态和媒体执行。新素材转写复用 talking-head-editor；未配置该后端不可声称已完成剪辑。
+第一版不自动抓选题、不调用模型。当前 Codex 根据真实材料生成选题和文案，CLI 管理确定性状态和媒体执行。新素材转写使用内置媒体后端；依赖或模型未准备好时不可声称已完成转写或剪辑。

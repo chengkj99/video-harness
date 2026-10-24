@@ -79,11 +79,17 @@ def config(p):
         raise HarnessError('不支持的项目版本')
     return c
 
+def backend_path(value=None):
+    return Path(__file__).parent / "media_backend/scripts/run.py" if not value or value == "builtin" else Path(value)
+
+def default_runtime():
+    return Path(os.environ.get("THE_RUNTIME_CONFIG", str(Path(os.environ.get("XDG_CONFIG_HOME", str(Path.home()/".config")))/"video-harness/runtime.json")))
+
 def backend_hash(p):
     c = config(p)
-    runner = Path(c['backend'])
+    runner = backend_path(c['backend'])
     if not runner.is_file():
-        raise HarnessError('找不到媒体后端；请配置 talking-head-editor/scripts/run.py')
+        raise HarnessError('找不到媒体后端；请重新安装 video-harness 或检查 --backend 路径')
     files = {x.name: file_hash(x) for x in sorted(runner.parent.glob('*.py'))}
     runtime = Path(c['runtime']) if c.get('runtime') else None
     files['runtime'] = file_hash(runtime) if runtime and runtime.is_file() else None
@@ -151,7 +157,9 @@ def validate_original(o):
         previous[c['id']] = a['end']
         ids.add(r['id'])
 
-def import_editor(destination, source, backend, runtime=None, source_map=None):
+def import_editor(destination, source, backend=None, runtime=None, source_map=None):
+    if not backend and runtime is None and default_runtime().is_file():
+        runtime = default_runtime()
     p, source = Path(destination).resolve(), Path(source).resolve()
     if p.exists():
         raise HarnessError('目标目录已存在；使用 status/resume，不覆盖')
@@ -168,7 +176,7 @@ def import_editor(destination, source, backend, runtime=None, source_map=None):
     for n, v in o.items():
         save(p / 'original' / n, v)
     save(p / 'harness.json', dict(schema_version=1, created_at=now(), imported_from=str(source),
-         original_hash=digest(o), backend=str(Path(backend).resolve()),
+         original_hash=digest(o), backend=str(Path(backend).resolve()) if backend and backend != 'builtin' else 'builtin',
          runtime=str(Path(runtime).resolve()) if runtime else None))
     title = o['plan.json'].get('title', '待确认选题')
     save(p / 'topic.json', dict(title=title, audience='', promise='', rationale='', must_keep=[], exclusions=[], candidates=[]))
@@ -360,7 +368,7 @@ def run_backend(p, arguments, log):
     if c.get('runtime'):
         env['THE_RUNTIME_CONFIG'] = c['runtime']
     with Path(log).open('w') as f:
-        result = subprocess.run([sys.executable, c['backend'], *arguments], stdout=f, stderr=subprocess.STDOUT, env=env)
+        result = subprocess.run([sys.executable, str(backend_path(c['backend'])), *arguments], stdout=f, stderr=subprocess.STDOUT, env=env)
     if result.returncode:
         raise HarnessError('媒体后端失败，请查看日志：' + str(log))
 

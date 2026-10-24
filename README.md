@@ -2,7 +2,13 @@
 
 面向中文口播、分享和访谈的本地视频生产工作流。先审选题和文字，再剪视频，最后交付封面、描述与标签。
 
-v0.1：Codex 插件 + Python 状态内核 + 本地审阅页 + talking-head-editor 媒体适配器。不是独立非线性编辑器，也不自动发布。
+v0.2：Codex 插件 + Python 状态内核 + 本地审阅页 + 内置本地媒体后端。不是独立非线性编辑器，也不自动发布。
+
+## 第一次使用：先准备工具
+
+请先阅读 [工具准备与首次试跑](docs/setup.md)，按步骤准备 Python、FFmpeg/ffprobe、中文字体和媒体环境，再安装 Codex 插件。已有环境可直接执行指南中的环境检查和合成视频试跑。
+
+**媒体代码、技能步骤和剪辑参考均已内置，不依赖其他技能仓库，也不需要另找后端。**按指南创建 Python 环境、安装依赖，执行 `video-harness configure` 和合成试跑后即可使用。模型仅在转写时需要，首次下载必须显式开启。
 
 ## 使用
 
@@ -27,7 +33,7 @@ codex plugin list --marketplace video-harness-local --json
 ## 环境
 
 - Python 3.9+，核心只用标准库；`python3 -m video_harness --help` 无需 pip 安装。
-- 媒体适配器需另行配置 `talking-head-editor/scripts/run.py` 和其 runtime.json，包含 Python、FFmpeg、ffprobe、字体及可选模型目录。
+- `pip install ".[media]"` 安装渲染依赖；需要转写时使用 `".[transcribe]"`（Python 3.10+，推荐 3.11）。`video-harness configure` 生成仓库外的本机 runtime。
 - PNG 封面使用媒体环境中的 Pillow；不可用时交付 SVG 并明确提示，不能冒充 PNG 已生成。
 - 首版验证平台 macOS；项目锁使用 POSIX flock，Windows 暂不支持。
 - 无静默云端上传、模型下载和全局依赖安装。
@@ -38,7 +44,6 @@ codex plugin list --marketplace video-harness-local --json
 python3 -m video_harness import-editor \
   --project /本地项目/第三条 \
   --from-project /已有剪辑工程 \
-  --backend /技能路径/talking-head-editor/scripts/run.py \
   --runtime /本机配置/runtime.json
 python3 -m video_harness serve --project /本地项目/第三条 --port 8765
 ```
@@ -47,7 +52,7 @@ python3 -m video_harness serve --project /本地项目/第三条 --port 8765
 
 素材移动时：`--source-map /映射.json`，文件内容为 `{"S001":"/新位置/原片.MP4"}`。大小、mtime 和首尾采样指纹必须相同；否则拒绝导入，不自动修改身份。原工程不会被改写。
 
-新素材先由配置的 talking-head-editor 初始化、转写、由 Agent 分析选段并生成源锚点字幕，再导入本工作流。v0.1 不自带另一套 ASR 引擎。坏转写必须回听校对。
+新素材先使用 `video-harness media init` 和 `media transcribe`，由 Agent 分析选段并通过 `media map-captions` 生成源锚点字幕，再导入工作流。完整命令见安装指南；坏转写必须回听校对。旧工程的显式 `--backend` 配置继续受支持，不自动迁移或沿用过期成片确认。
 
 ## 工作流
 
@@ -84,7 +89,7 @@ python3 -m unittest discover -s tests -v
 # 包括本机 HTTP 集成测试：
 VH_HTTP_TESTS=1 python3 -m unittest discover -s tests -v
 # 真实媒体后端测试（生成合成视频，不使用用户素材）：
-python3 scripts/smoke_media.py --backend /后端/scripts/run.py --runtime /runtime.json --output /新的临时目录
+python3 scripts/smoke_media.py --runtime /runtime.json --output /新的临时目录
 ```
 
 测试仅使用合成数据，审批记录标为测试，不得迁移到真实项目。实际渲染验证见 `docs/validation.md`。真实素材及完整用户文字稿不纳入仓库。

@@ -14,14 +14,14 @@ from video_harness.package import package
 
 def main():
     p=argparse.ArgumentParser()
-    p.add_argument('--backend',required=True);p.add_argument('--runtime',required=True);p.add_argument('--output',required=True)
+    p.add_argument('--backend',default=None);p.add_argument('--runtime',default=str(c.default_runtime()));p.add_argument('--output',required=True)
     a=p.parse_args();root=Path(a.output).resolve()
     if root.exists():raise ValueError('Use a new output directory')
     root.mkdir(parents=True);runtime=c.read(a.runtime)
     source=root/'synthetic.mp4'
     subprocess.run([runtime['ffmpeg'],'-v','error','-f','lavfi','-i','testsrc2=size=640x360:rate=25:duration=6','-f','lavfi','-i','sine=frequency=440:sample_rate=48000:duration=6','-c:v','libx264','-pix_fmt','yuv420p','-c:a','aac','-shortest',str(source)],check=True)
     legacy=root/'editor';env=os.environ.copy();env['THE_RUNTIME_CONFIG']=str(Path(a.runtime).resolve())
-    subprocess.run([sys.executable,a.backend,'init','--project',str(legacy),str(source)],check=True,env=env,stdout=subprocess.DEVNULL)
+    subprocess.run([sys.executable,str(c.backend_path(a.backend)),'init','--project',str(legacy),str(source)],check=True,env=env,stdout=subprocess.DEVNULL)
     plan=c.read(legacy/'plan.json');plan.update(width=640,height=360,fps=25,title='合成验证',clips=[{'id':'E1','source_id':'S001','start':0,'end':6,'framing':'fit'}],chapters=[]);c.save(legacy/'plan.json',plan)
     caps=[]
     for i,(start,end) in enumerate([(1,2),(3,4)]):

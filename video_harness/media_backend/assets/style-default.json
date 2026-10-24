@@ -1,0 +1,36 @@
+{
+  "font_file": null,
+  "font_size": 52,
+  "title_size": 62,
+  "chapter_size": 46,
+  "intro_seconds": 5,
+  "colors": {
+    "base": "#F8F5EC",
+    "accent": "#FFD168",
+    "fact": "#7BDCD6",
+    "opinion": "#FFD168",
+    "stance": "#FFA48B"
+  },
+  "keywords": {},
+  "protected_terms": [],
+  "grade": {
+    "contrast": 1.025,
+    "brightness": -0.004,
+    "saturation": 0.97,
+    "gamma": 1.015
+  },
+  "audio": {
+    "normalize": true,
+    "highpass": 65,
+    "lufs": -16,
+    "true_peak": -1.6
+  },
+  "endcard": {
+    "enabled": false,
+    "seconds": 4,
+    "summary": "",
+    "points": [],
+    "cta": "",
+    "slogan": ""
+  }
+}
