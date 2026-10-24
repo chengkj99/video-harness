@@ -1,0 +1,4 @@
+interface:
+  display_name: "Video Harness"
+  short_description: "从选题和剪辑稿确认，到本地成片、封面与发布文案的可恢复工作流"
+  default_prompt: "使用 $video-harness 分析这组视频，先给我选题和可修改的剪辑稿，确认后再剪辑并制作发布配套。"

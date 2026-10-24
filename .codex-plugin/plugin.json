@@ -1,0 +1,14 @@
+{
+  "name": "video-harness",
+  "version": "0.1.0",
+  "description": "Local transcript-first video workflow with review gates and publishing assets",
+  "author": {"name": "chengkj99"},
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Video Harness",
+    "shortDescription": "审稿驱动的本地视频剪辑与发布配套",
+    "longDescription": "分析素材、确认剪辑稿、保留原意、生成成片和发布配套。项目独立保存，支持版本确认与断点续作。",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"]
+  }
+}
