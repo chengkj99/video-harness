@@ -191,7 +191,7 @@ def import_editor(destination, source, backend=None, runtime=None, source_map=No
     save(p / 'story.json', dict(units=units))
     save(p / 'style.json', o['style.json'])
     save(p / 'copy.json', dict(title=title, description='', tags=[], cover_lines=['表达', '让你重新认识自己'],
-                               cover_size=[900, 1200], platform='未指定，比例为设计稿'))
+                               cover_size=[1500, 2000], cover_sizes={'portrait': [1500, 2000], 'landscape': [1600, 1200]}, platform='未指定，比例为设计稿'))
     save(p / 'approvals.json', {})
     event(p, 'import', source=str(source), approvals_inherited=False, verified_relocations=source_map or {})
     review_markdown(p)

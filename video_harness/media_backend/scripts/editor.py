@@ -108,6 +108,7 @@ def load_project(project):
     for field,lo,hi in [('contrast',.5,2),('brightness',-.5,.5),('saturation',0,2),('gamma',.5,2)]:
         value=style['grade'][field]
         if not isinstance(value,(int,float)) or not math.isfinite(value) or not lo<=value<=hi:raise ValueError('Invalid grade parameter')
+    if not isinstance(style['audio'].get('denoise',False),bool):raise ValueError('audio.denoise must be a boolean')
     for field,lo,hi in [('highpass',0,200),('lufs',-40,-8),('true_peak',-12,0)]:
         value=style['audio'][field]
         if not isinstance(value,(int,float)) or not math.isfinite(value) or not lo<=value<=hi:raise ValueError('Invalid audio parameter')
@@ -216,10 +217,33 @@ def preview(a):
     return {'preview':str(dest/'preview.png'),'backend':'Pillow design preview; inspect final frames for ASS path'}
 
 
+def audio_filter(ac, base, cache):
+    """Measure and render with identical preprocessing; legacy styles opt out."""
+    prefix=[]
+    # Historically highpass was bypassed when normalization was disabled.
+    if ac.get('normalize',True) or ac.get('denoise',False):
+        if ac['highpass']>0:prefix.append(f'highpass=f={ac["highpass"]}')
+    if ac.get('denoise',False):prefix.append('afftdn=nr=8:nf=-50:tn=1')
+    audio=','.join(prefix) or 'anull'
+    if not ac.get('normalize',True):return audio
+    target=f'loudnorm=I={ac["lufs"]}:TP={ac["true_peak"]}:LRA=11'
+    measure=cache/'loudness.json'
+    if not measure.exists():
+        result=subprocess.run([binary('ffmpeg'),'-hide_banner','-nostdin','-i',str(base),'-vn','-af',f'{audio},{target}:print_format=json','-f','null','-'],capture_output=True,text=True)
+        if result.returncode:raise RuntimeError(result.stderr[-3000:])
+        tail=result.stderr[result.stderr.rfind('{'):];data=json.JSONDecoder().raw_decode(tail)[0];save(measure,data)
+    m=read(measure)
+    if all(math.isfinite(float(m[k])) for k in ['input_i','input_tp','input_lra','input_thresh','target_offset']):
+        audio+=f',{target}:measured_I={m["input_i"]}:measured_TP={m["input_tp"]}:measured_LRA={m["input_lra"]}:measured_thresh={m["input_thresh"]}:offset={m["target_offset"]}:linear=true'
+    return audio
+
+
 def render(a):
     p,src,plan,caps,style=load_project(a.project);g=graphics_for(p,plan,caps,style)
     if not caps and not a.allow_no_captions:raise ValueError('No captions; review transcript first or explicitly use --allow-no-captions')
     filters=run([binary('ffmpeg'),'-hide_banner','-filters'],True);has_ass=' ass ' in filters
+    if style['audio'].get('denoise',False) and not any('afftdn' in line.split() for line in filters.splitlines()):
+        raise ValueError('afftdn denoise filter unavailable; configure THE_FFMPEG or explicitly disable audio.denoise')
     backend=('ass' if has_ass else 'pillow') if a.backend=='auto' else a.backend
     if backend=='ass' and not has_ass:raise ValueError('ASS filter unavailable; choose Pillow or configure THE_FFMPEG')
     base=base_video(p,src,plan);body=g.duration;end=style['endcard']['seconds'] if style['endcard']['enabled'] else 0
@@ -246,17 +270,7 @@ def render(a):
         fontdest=fonts/('font'+Path(g.fontfile).suffix)
         if not fontdest.exists():shutil.copyfile(g.fontfile,fontdest)
         subtitle_filter=',ass=subtitles.ass:fontsdir=fonts'
-    audio='anull'
-    if style.get('audio',{}).get('normalize',True):
-        ac=style['audio'];measure=cache/'loudness.json'
-        if not measure.exists():
-            result=subprocess.run([binary('ffmpeg'),'-hide_banner','-nostdin','-i',str(base),'-vn','-af',f'highpass=f={ac["highpass"]},loudnorm=I={ac["lufs"]}:TP={ac["true_peak"]}:LRA=11:print_format=json','-f','null','-'],capture_output=True,text=True)
-            if result.returncode:raise RuntimeError(result.stderr[-3000:])
-            tail=result.stderr[result.stderr.rfind('{'):];data=json.JSONDecoder().raw_decode(tail)[0];save(measure,data)
-        m=read(measure)
-        if all(math.isfinite(float(m[k])) for k in ['input_i','input_tp','input_lra','input_thresh','target_offset']):
-            audio=f'highpass=f={ac["highpass"]},loudnorm=I={ac["lufs"]}:TP={ac["true_peak"]}:LRA=11:measured_I={m["input_i"]}:measured_TP={m["input_tp"]}:measured_LRA={m["input_lra"]}:measured_thresh={m["input_thresh"]}:offset={m["target_offset"]}:linear=true'
-        else:audio=f'highpass=f={ac["highpass"]}'
+    audio=audio_filter(style['audio'],base,cache)
     grade=style['grade'];vf=f'fps={fps},eq=contrast={grade["contrast"]}:brightness={grade["brightness"]}:saturation={grade["saturation"]}:gamma={grade["gamma"]},tpad=stop_mode=clone:stop_duration={end+1},trim=duration={duration},setpts=PTS-STARTPTS'
     final=cache/'final.mp4'
     if not final.exists():

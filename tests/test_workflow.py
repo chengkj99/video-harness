@@ -120,6 +120,8 @@ class WorkflowTests(unittest.TestCase):
         out=package(self.project)
         manifest=c.read(Path(out['package'])/'manifest.json')
         self.assertFalse(manifest['published']);self.assertFalse(manifest['draft']);self.assertIn('cover.svg',manifest['files'])
+        self.assertIn('cover-portrait.svg', manifest['files'])
+        self.assertIn('cover-landscape.svg', manifest['files'])
 
     def test_style_change_invalidates_film_but_not_script(self):
         self.approve_script();self.fake_render();self.approve('film')

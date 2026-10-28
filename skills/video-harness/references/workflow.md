@@ -28,3 +28,11 @@ vh package --project /项目目录
 原始快照在 original/；编译工程 builds/；执行日志 jobs/；packages/ 按版本新增。原始媒体只记录外部绝对路径。程序只做技术验证，semantic_review 仍为 not_asserted。
 
 第一版不自动抓选题、不调用模型。当前 Codex 根据真实材料生成选题和文案，CLI 管理确定性状态和媒体执行。新素材转写使用内置媒体后端；依赖或模型未准备好时不可声称已完成转写或剪辑。
+
+封面配置增加 `cover_sizes`：portrait=[1500,2000]、landscape=[1600,1200]。省略时使用双比例默认值；旧 cover_size 控制兼容主封面。设计与检查见 [covers.md](covers.md)。
+
+## 面向陌生观众的审查产物
+
+展示剪辑稿前按[审查规范](audience-editing.md)执行，使用[审查模板](../templates/audience-review.md)与[版本说明模板](../templates/revision-notes.md)，由 Agent 在仓库外工程中生成 audience-review.md 和 revision-notes.md；CLI 不自动生成这些文件。它们补充现有 review.md，不修改 story.json、审批哈希或命令接口，也不替代用户确认。
+
+审查记录用字幕 ID 或源时间定位；编译后填实际成片位置，估计须标注。每次改版前保留旧记录，交付时一并提供当前审查与版本说明。现有 package 命令不会自动收录这两份文件，可作为交付包旁的配套文件提供，不改写已生成的包及其清单。不得把预计结构收益表述为已验证的流量改善。

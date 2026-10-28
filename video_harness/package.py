@@ -9,6 +9,24 @@ import uuid
 from .core import HarnessError, approval_valid, current_render, read, save, file_hash, digest, config, event, lock, now
 
 
+DEFAULT_COVER_SIZES = {'portrait': [1500, 2000], 'landscape': [1600, 1200]}
+
+
+def cover_variants(copy):
+    sizes = copy.get('cover_sizes', DEFAULT_COVER_SIZES)
+    if not isinstance(sizes, dict) or set(sizes) != set(DEFAULT_COVER_SIZES):
+        raise HarnessError('cover_sizes 需要 portrait 和 landscape 两种封面')
+    variants = {}
+    for name, ratio in [('portrait', (3, 4)), ('landscape', (4, 3))]:
+        size = sizes[name]
+        if (not isinstance(size, (list, tuple)) or len(size) != 2
+                or any(type(x) is not int or not 200 <= x <= 4000 for x in size)
+                or size[0] * ratio[1] != size[1] * ratio[0]):
+            raise HarnessError(f'{name} 封面必须为 {ratio[0]}:{ratio[1]}，尺寸 200–4000 像素')
+        variants[name] = dict(copy, cover_size=list(size))
+    return variants
+
+
 def cover_svg(copy):
     width, height = copy.get('cover_size', [900, 1200])
     if type(width) is not int or type(height) is not int or not 200 <= min(width, height) <= max(width, height) <= 4000:
@@ -65,20 +83,27 @@ def package(p, draft=False):
         if not copy.get('title') or not copy.get('description') or not isinstance(copy.get('tags'), list):
             raise HarnessError('请先填写 copy.json 的标题、描述和标签')
         svg = cover_svg(copy)
+        variants = cover_variants(copy)
         dest = p/'packages'/(( 'draft-' if draft else 'approved-')+uuid.uuid4().hex[:12])
         dest.mkdir(parents=True)
         export = Path(render['export'])
         for name in ['video.mp4', 'subtitles.srt', 'verification.json']:
             shutil.copy2(export/name, dest/name)
         (dest/'cover.svg').write_text(svg, encoding='utf-8')
-        warning = render_png(p, copy, dest/'cover.png')
+        warning = render_png(p, dict(copy, cover_size=copy.get('cover_size', [900, 1200])), dest/'cover.png')
+        warnings = [warning] if warning else []
+        for name, variant in variants.items():
+            (dest/f'cover-{name}.svg').write_text(cover_svg(variant), encoding='utf-8')
+            warning = render_png(p, variant, dest/f'cover-{name}.png')
+            if warning:
+                warnings.append(name + ': ' + warning)
         save(dest/'copy.json', copy)
         save(dest/'story.json', read(p/'story.json'))
         (dest/'description.txt').write_text(copy['title']+'\n\n'+copy['description']+'\n\n'+' '.join('#'+x.lstrip('#') for x in copy['tags'])+'\n', encoding='utf-8')
-        (dest/'README.md').write_text(('# 待审发布包' if draft else '# 已确认的本地发布包')+'\n\n未发布到任何平台。\n\n封面比例为配置设计尺寸，不代表平台规范；发布前检查目标平台裁切。\n\n技术检查不等于全片语义/听审通过。\n'+(warning or ''), encoding='utf-8')
+        (dest/'README.md').write_text(('# 待审发布包' if draft else '# 已确认的本地发布包')+'\n\n未发布到任何平台。\n\n双比例文字设计草稿：竖版 3:4、横版 4:3。人物故事化封面需另行制作。封面比例不代表平台规范；发布前检查目标平台裁切。\n\n技术检查不等于全片语义/听审通过。\n'+'\n'.join(warnings), encoding='utf-8')
         files = {x.name: file_hash(x) for x in dest.iterdir() if x.is_file()}
         save(dest/'manifest.json', dict(schema_version=1, created_at=now(), draft=draft, published=False,
              input_hash=render['input_hash'], copy_hash=digest(copy), files=files,
-             approvals=read(p/'approvals.json') if not draft else {}, warnings=[warning] if warning else []))
+             approvals=read(p/'approvals.json') if not draft else {}, warnings=warnings))
         event(p, 'package', path=str(dest), draft=draft)
-        return dict(package=str(dest), draft=draft, published=False, warnings=[warning] if warning else [])
+        return dict(package=str(dest), draft=draft, published=False, warnings=warnings)

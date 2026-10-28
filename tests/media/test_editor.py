@@ -72,6 +72,30 @@ class Workflow(unittest.TestCase):
         style['endcard']['slogan']='用 AI，让价值被看见';media.save(p/'style.json',style)
         result=editor.render(SimpleNamespace(project=str(p),backend='pillow',allow_no_captions=False));self.assertEqual(base.stat().st_mtime_ns,mtime);self.assertFalse((p/'cache/transcribe').exists())
         self.assertEqual(media.read(Path(result['export'])/'style.json')['endcard']['slogan'],style['endcard']['slogan'])
+    def test_audio_config_validation_and_missing_filter(self):
+        p=self.project();style=media.read(p/'style.json')
+        for value in ['true',1,None,{}]:
+            style['audio']['denoise']=value;media.save(p/'style.json',style)
+            with self.assertRaisesRegex(ValueError,'denoise must be a boolean'):editor.load_project(p)
+        style['audio']['denoise']=True;media.save(p/'style.json',style)
+        with patch.object(editor,'run',return_value=''),patch.object(editor,'base_video') as base:
+            with self.assertRaisesRegex(ValueError,'afftdn denoise filter unavailable'):
+                editor.render(SimpleNamespace(project=str(p),backend='pillow',allow_no_captions=False))
+            base.assert_not_called()
+
+    def test_audio_change_reuses_base_and_invalidates_render(self):
+        p=self.project();args=SimpleNamespace(project=str(p),backend='pillow',allow_no_captions=False)
+        _,src,plan,caps,style=editor.load_project(p);base=editor.base_video(p,src,plan);mtime=base.stat().st_mtime_ns
+        one=Path(editor.render(args)['export']);first=editor.verify(SimpleNamespace(export=str(one)))
+        style['audio']['denoise']=False;media.save(p/'style.json',style)
+        two=Path(editor.render(args)['export']);second=editor.verify(SimpleNamespace(export=str(two)))
+        self.assertNotEqual(media.read(one/'manifest.json')['signature'],media.read(two/'manifest.json')['signature'])
+        self.assertEqual(len(list((p/'cache/render').glob('*/loudness.json'))),2)
+        self.assertEqual(base.stat().st_mtime_ns,mtime)
+        self.assertEqual(first['frames'],second['frames']);self.assertEqual(first['duration'],second['duration'])
+        self.assertEqual(media.read(one/'captions.json'),media.read(two/'captions.json'))
+        self.assertFalse((p/'cache/transcribe').exists())
+
     def test_render_multifile_cache_and_caption_revision(self):
         p=self.project(inputs=[str(v) for v in self.videos]);_,src,plan,caps,style=editor.load_project(p)
         base=editor.base_video(p,src,plan);self.assertEqual(int(media.probe(base)['video']['nb_frames']),120)

@@ -21,8 +21,9 @@
   },
   "audio": {
     "normalize": true,
+    "denoise": true,
     "highpass": 65,
-    "lufs": -16,
+    "lufs": -14,
     "true_peak": -1.6
   },
   "endcard": {
